@@ -57,6 +57,7 @@ public class CEP {
 	 *            keySerializer to the same type)
 	 * @return Resulting pattern stream
 	 */
+	@SuppressWarnings("unchecked")
 	public static <T, K> PatternStream<T> pattern(DataStream<T> input, Pattern<T, ?> pattern) {
 		final TypeSerializer<T> inputSerializer = input.getType().createSerializer(input.getExecutionConfig());
 
