@@ -47,7 +47,7 @@ public class CEPITCase extends StreamingMultipleProgramsTestBase {
 
 	@Before
 	public void before() throws Exception {
-		resultPath = tempFolder.newFile().toURI().toString();
+		resultPath = tempFolder.newFolder().toURI().toString();
 		expected = "";
 	}
 
