@@ -82,6 +82,8 @@ public class ExecutionConfig implements Serializable {
 
 	private int parallelism = -1;
 
+	private int maxParallelism = -1;
+
 	/**
 	 * @deprecated Should no longer be used because it is subsumed by RestartStrategyConfiguration
 	 */
@@ -237,6 +239,26 @@ public class ExecutionConfig implements Serializable {
 		}
 		this.parallelism = parallelism;
 		return this;
+	}
+
+	/**
+	 * Gets the maximum degree of parallelism defined for the program.
+	 *
+	 * @return Maximum degree of parallelism
+	 */
+	@PublicEvolving
+	public int getMaxParallelism() {
+		return maxParallelism;
+	}
+
+	/**
+	 * Sets the maximum degree of parallelism defined for the program.
+	 *
+	 * @param maxParallelism Maximum degree of parallelism to be used for the program.
+	 */
+	@PublicEvolving
+	public void setMaxParallelism(int maxParallelism) {
+		this.maxParallelism = maxParallelism;
 	}
 
 	/**
