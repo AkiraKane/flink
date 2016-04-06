@@ -64,8 +64,8 @@ public class KeyGroupStateBackend extends AbstractStateBackend {
 	@Override
 	public void initializeForJob(
 		Environment env,
-	 	String operatorIdentifier,
-	 	TypeSerializer<?> keySerializer) throws Exception {
+		String operatorIdentifier,
+		TypeSerializer<?> keySerializer) throws Exception {
 		super.initializeForJob(env, operatorIdentifier, keySerializer);
 		this.operatorIdentifier = operatorIdentifier;
 		this.environment = env;

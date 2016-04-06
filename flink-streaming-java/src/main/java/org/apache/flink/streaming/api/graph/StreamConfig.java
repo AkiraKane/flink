@@ -395,10 +395,12 @@ public class StreamConfig implements Serializable {
 	// ------------------------------------------------------------------------
 	
 	public void setStateBackend(AbstractStateBackend backend) {
-		try {
-			InstantiationUtil.writeObjectToConfig(backend, this.config, STATE_BACKEND);
-		} catch (Exception e) {
-			throw new StreamTaskException("Could not serialize stateHandle provider.", e);
+		if (backend != null) {
+			try {
+				InstantiationUtil.writeObjectToConfig(backend, this.config, STATE_BACKEND);
+			} catch (Exception e) {
+				throw new StreamTaskException("Could not serialize stateHandle provider.", e);
+			}
 		}
 	}
 	

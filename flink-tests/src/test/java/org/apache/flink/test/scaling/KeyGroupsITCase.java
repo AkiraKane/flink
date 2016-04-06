@@ -19,12 +19,18 @@
 package org.apache.flink.test.scaling;
 
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.util.TestLogger;
 import org.junit.Test;
+
+import java.util.Random;
 
 public class KeyGroupsITCase extends TestLogger {
 
@@ -32,10 +38,11 @@ public class KeyGroupsITCase extends TestLogger {
 	public void testKeyGroups() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+		env.enableCheckpointing(1000);
 		env.getConfig().setMaxParallelism(5);
 		env.setParallelism(3);
 
-		DataStream<Tuple2<Integer, Integer>> input = env.fromElements(1, 2, 3, 4, 5, 6, 7).map(new MapFunction<Integer, Tuple2<Integer, Integer>>() {
+		DataStream<Tuple2<Integer, Integer>> input = env.addSource(new SimpleSource()).map(new MapFunction<Integer, Tuple2<Integer, Integer>>() {
 			private static final long serialVersionUID = 494178923987052158L;
 
 			@Override
@@ -44,17 +51,55 @@ public class KeyGroupsITCase extends TestLogger {
 			}
 		});
 
-		DataStream<Tuple2<Integer, Integer>> result = input.keyBy(0).reduce(new ReduceFunction<Tuple2<Integer, Integer>>() {
+		DataStream<Tuple2<Integer, Integer>> result = input.keyBy(0).map(new RichMapFunction<Tuple2<Integer,Integer>, Tuple2<Integer,Integer>>() {
+
 			private static final long serialVersionUID = 5713085119372248196L;
 
+			transient ValueState<Integer> counter = null;
+
 			@Override
-			public Tuple2<Integer, Integer> reduce(Tuple2<Integer, Integer> value1, Tuple2<Integer, Integer> value2) throws Exception {
-				return Tuple2.of(value1.f0, value1.f1 + value2.f1);
+			public void open(Configuration configuration) {
+				counter = getRuntimeContext().getState(new ValueStateDescriptor<Integer>("counter", Integer.class, 0));
+			}
+
+			@Override
+			public Tuple2<Integer, Integer> map(Tuple2<Integer, Integer> value) throws Exception {
+				int cnt = counter.value();
+				counter.update(value.f1 + cnt);
+
+				return Tuple2.of(value.f0, value.f1 + cnt);
 			}
 		});
 
 		result.print();
 
 		env.execute();
+	}
+
+	public static class SimpleSource extends RichParallelSourceFunction<Integer> {
+
+		private static final long serialVersionUID = 517364335085858153L;
+
+		private boolean running = true;
+
+		transient private Random random;
+
+		@Override
+		public void open(Configuration configuration) {
+			random = new Random();
+		}
+
+		@Override
+		public void run(SourceContext<Integer> ctx) throws Exception {
+			while (running) {
+				ctx.collect(random.nextInt(20));
+				Thread.sleep(100);
+			}
+		}
+
+		@Override
+		public void cancel() {
+			running = false;
+		}
 	}
 }

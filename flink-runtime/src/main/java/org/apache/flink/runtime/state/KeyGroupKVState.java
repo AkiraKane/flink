@@ -37,7 +37,7 @@ public class KeyGroupKVState<K, N, S extends State, SD extends StateDescriptor<S
 
 	protected S state;
 
-	private int previousVirtualPartitionID = -1;
+	private int previousKeyGroupID = -1;
 
 	private N currentNamespace;
 
@@ -56,12 +56,12 @@ public class KeyGroupKVState<K, N, S extends State, SD extends StateDescriptor<S
 
 	@Override
 	public void setCurrentKey(K key) {
-		int virtualPartitionID = keyGroupAssigner.getKeyGroupID(key);
+		int keyGroupID = keyGroupAssigner.getKeyGroupID(key);
 
-		if (virtualPartitionID != previousVirtualPartitionID) {
-			previousVirtualPartitionID = virtualPartitionID;
+		if (keyGroupID != previousKeyGroupID) {
+			previousKeyGroupID = keyGroupID;
 
-			currentBackend = backend.getBackend(virtualPartitionID);
+			currentBackend = backend.getBackend(keyGroupID);
 
 			try {
 				state = currentBackend.getPartitionedState(currentNamespace, namespaceSerializer, stateDescriptor);
