@@ -59,8 +59,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.runtime.tasks.StreamOperatorState;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskState;
-import org.apache.flink.streaming.runtime.tasks.StreamTaskStateList;
 import org.apache.flink.test.util.ForkableFlinkMiniCluster;
 import org.apache.flink.util.TestLogger;
 import org.junit.Test;
@@ -351,10 +351,10 @@ public class SavepointITCase extends TestLogger {
 			List<File> checkpointFiles = new ArrayList<>();
 
 			for (StateForTask stateForTask : savepoint.getStates()) {
-				StreamTaskStateList taskStateList = (StreamTaskStateList) stateForTask.getState()
+				StreamTaskState taskStateList = (StreamTaskState) stateForTask.getState()
 						.deserializeValue(ClassLoader.getSystemClassLoader());
 
-				for (StreamTaskState taskState : taskStateList.getState(
+				for (StreamOperatorState taskState : taskStateList.getState(
 						ClassLoader.getSystemClassLoader())) {
 
 					AbstractFileStateHandle fsState = (AbstractFileStateHandle) taskState.getFunctionState();
@@ -646,10 +646,10 @@ public class SavepointITCase extends TestLogger {
 
 			// Check that all checkpoint files have been removed
 			for (StateForTask stateForTask : savepoint.getStates()) {
-				StreamTaskStateList taskStateList = (StreamTaskStateList) stateForTask.getState()
+				StreamTaskState taskStateList = (StreamTaskState) stateForTask.getState()
 						.deserializeValue(ClassLoader.getSystemClassLoader());
 
-				for (StreamTaskState taskState : taskStateList.getState(
+				for (StreamOperatorState taskState : taskStateList.getState(
 						ClassLoader.getSystemClassLoader())) {
 
 					AbstractFileStateHandle fsState = (AbstractFileStateHandle) taskState.getFunctionState();

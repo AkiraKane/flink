@@ -46,7 +46,7 @@ import org.apache.flink.streaming.runtime.operators.Triggerable;
 import org.apache.flink.streaming.runtime.operators.windowing.buffers.WindowBuffer;
 import org.apache.flink.streaming.runtime.operators.windowing.buffers.WindowBufferFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
-import org.apache.flink.streaming.runtime.tasks.StreamTaskState;
+import org.apache.flink.streaming.runtime.tasks.StreamOperatorState;
 import org.apache.flink.util.InstantiationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -566,8 +566,8 @@ public class NonKeyedWindowOperator<IN, ACC, OUT, W extends Window>
 	// ------------------------------------------------------------------------
 
 	@Override
-	public StreamTaskState snapshotOperatorState(long checkpointId, long timestamp) throws Exception {
-		StreamTaskState taskState = super.snapshotOperatorState(checkpointId, timestamp);
+	public StreamOperatorState snapshotOperatorState(long checkpointId, long timestamp) throws Exception {
+		StreamOperatorState taskState = super.snapshotOperatorState(checkpointId, timestamp);
 
 		// we write the panes with the key/value maps into the stream
 		AbstractStateBackend.CheckpointStateOutputView out = getStateBackend().createCheckpointStateOutputView(checkpointId, timestamp);
@@ -583,7 +583,7 @@ public class NonKeyedWindowOperator<IN, ACC, OUT, W extends Window>
 	}
 
 	@Override
-	public void restoreState(StreamTaskState taskState, long recoveryTimestamp) throws Exception {
+	public void restoreState(StreamOperatorState taskState, long recoveryTimestamp) throws Exception {
 		super.restoreState(taskState, recoveryTimestamp);
 
 		final ClassLoader userClassloader = getUserCodeClassloader();
