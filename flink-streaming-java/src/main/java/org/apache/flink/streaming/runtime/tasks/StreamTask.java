@@ -44,6 +44,8 @@ import org.apache.flink.runtime.state.AsynchronousStateHandle;
 import org.apache.flink.runtime.state.DeserializationStateBackendFactory;
 import org.apache.flink.runtime.state.KvStateSnapshot;
 import org.apache.flink.runtime.state.KeyGroupStateBackend;
+import org.apache.flink.runtime.state.KeyGroupState;
+import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.state.memory.MemoryStateBackendFactory;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.util.event.EventListener;
@@ -491,6 +493,7 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 				// now draw the state snapshot
 				final StreamOperator<?>[] allOperators = operatorChain.getAllOperators();
 				final StreamOperatorState[] states = new StreamOperatorState[allOperators.length];
+				final HashMap<Integer, StateHandle<?>> chainedKeyGroupStates = new HashMap<>();
 
 				boolean hasAsyncStates = false;
 
@@ -504,15 +507,42 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 						if (state.getFunctionState() instanceof AsynchronousStateHandle) {
 							hasAsyncStates = true;
 						}
-						if (state.getKvStates() != null) {
-							for (KvStateSnapshot<?, ?, ?, ?, ?> kvSnapshot: state.getKvStates().values()) {
-								if (kvSnapshot instanceof AsynchronousKvStateSnapshot) {
-									hasAsyncStates = true;
+
+						// snapshot kv state
+						Map<Integer, KeyGroupState> keyGroupStates = operator.snapshotKvState(
+							this.getIndexInSubtaskGroup(),
+							checkpointId,
+							timestamp);
+
+						if (keyGroupStates != null) {
+							for (KeyGroupState keyGroupState : keyGroupStates.values()) {
+
+								if (keyGroupState != null) {
+									for (KvStateSnapshot<?, ?, ?, ?, ?> kvSnapshot : keyGroupState.values()) {
+										if (kvSnapshot instanceof AsynchronousKvStateSnapshot) {
+											hasAsyncStates = true;
+										}
+									}
 								}
 							}
 						}
 
 						states[i] = state.isEmpty() ? null : state;
+
+						if (keyGroupStates != null) {
+							for (Map.Entry<Integer, KeyGroupState> keyGroupState : keyGroupStates.entrySet()) {
+								ChainedKeyGroupState chainedKeyGroupState;
+
+								if (!chainedKeyGroupStates.containsKey(keyGroupState.getKey())) {
+									chainedKeyGroupState = new ChainedKeyGroupState(allOperators.length);
+									chainedKeyGroupStates.put(keyGroupState.getKey(), chainedKeyGroupState);
+								} else {
+									chainedKeyGroupState = (ChainedKeyGroupState) chainedKeyGroupStates.get(keyGroupState.getKey());
+								}
+
+								chainedKeyGroupState.put(i, keyGroupState.getValue());
+							}
+						}
 					}
 				}
 
@@ -522,12 +552,12 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 					throw new CancelTaskException();
 				}
 
-				StreamTaskState allStates = new StreamTaskState(states);
+				StreamTaskState streamTaskState = new StreamTaskState(states);
 
-				if (allStates.isEmpty()) {
+				if (streamTaskState.isEmpty()) {
 					getEnvironment().acknowledgeCheckpoint(checkpointId);
 				} else if (!hasAsyncStates) {
-					getEnvironment().acknowledgeCheckpoint(checkpointId, allStates);
+					getEnvironment().acknowledgeCheckpoint(checkpointId, streamTaskState, chainedKeyGroupStates);
 				} else {
 					// start a Thread that does the asynchronous materialization and
 					// then sends the checkpoint acknowledge
@@ -547,21 +577,23 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 											AsynchronousStateHandle<?> asyncState = (AsynchronousStateHandle<?>) state.getOperatorState();
 											state.setOperatorState(asyncState.materialize());
 										}
-										if (state.getKvStates() != null) {
-											Set<String> keys = state.getKvStates().keySet();
-											HashMap<String, KvStateSnapshot<?, ?, ?, ?, ?>> kvStates = state.getKvStates();
-											for (String key: keys) {
-												if (kvStates.get(key) instanceof AsynchronousKvStateSnapshot) {
-													AsynchronousKvStateSnapshot<?, ?, ?, ?, ?> asyncHandle = (AsynchronousKvStateSnapshot<?, ?, ?, ?, ?>) kvStates.get(key);
-													kvStates.put(key, asyncHandle.materialize());
-												}
-											}
-										}
-
 									}
 								}
-								StreamTaskState allStates = new StreamTaskState(states);
-								getEnvironment().acknowledgeCheckpoint(checkpointId, allStates);
+
+								for (StateHandle<?> stateHandle: chainedKeyGroupStates.values()) {
+									ChainedKeyGroupState chainedKeyGroupState = (ChainedKeyGroupState) stateHandle;
+									for (KeyGroupState keyGroupState: chainedKeyGroupState.getState(getUserCodeClassLoader()).values()) {
+										for (String key: keyGroupState.keySet()) {
+											if (keyGroupState.get(key) instanceof AsynchronousKvStateSnapshot) {
+												AsynchronousKvStateSnapshot<?, ?, ?, ?, ?> asyncHandle = (AsynchronousKvStateSnapshot<?, ?, ?, ?, ?>) keyGroupState.get(key);
+												keyGroupState.put(key, asyncHandle.materialize());
+											}
+										}
+									}
+								}
+
+								StreamTaskState streamTaskState = new StreamTaskState(states);
+								getEnvironment().acknowledgeCheckpoint(checkpointId, streamTaskState, chainedKeyGroupStates);
 								LOG.debug("Finished asynchronous checkpoints for checkpoint {} on task {}", checkpointId, getName());
 							}
 							catch (Exception e) {

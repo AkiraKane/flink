@@ -40,6 +40,7 @@ import org.apache.flink.runtime.execution.Environment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -268,18 +269,23 @@ public abstract class AbstractStateBackend implements java.io.Serializable {
 		return kvstate;
 	}
 
-	public HashMap<String, KvStateSnapshot<?, ?, ?, ?, ?>> snapshotPartitionedState(long checkpointId, long timestamp) throws Exception {
+	public Map<Integer, KeyGroupState> snapshotPartitionedState(
+		int subtaskIndex,
+		long checkpointId,
+		long timestamp) throws Exception {
+
 		if (keyValueStates != null) {
-			HashMap<String, KvStateSnapshot<?, ?, ?, ?, ?>> snapshots = new HashMap<>(keyValueStatesByName.size());
+			KeyGroupState keyGroupState = new KeyGroupState();
 
 			for (Map.Entry<String, KvState<?, ?, ?, ?, ?>> entry : keyValueStatesByName.entrySet()) {
 				KvStateSnapshot<?, ?, ?, ?, ?> snapshot = entry.getValue().snapshot(checkpointId, timestamp);
-				snapshots.put(entry.getKey(), snapshot);
+				keyGroupState.put(entry.getKey(), snapshot);
 			}
-			return snapshots;
-		}
 
-		return null;
+			return Collections.singletonMap(subtaskIndex, keyGroupState);
+		} else {
+			return null;
+		}
 	}
 
 	public void notifyOfCompletedCheckpoint(long checkpointId) throws Exception {
