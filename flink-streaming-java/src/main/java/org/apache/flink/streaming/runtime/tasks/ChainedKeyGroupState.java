@@ -18,10 +18,12 @@
 
 package org.apache.flink.streaming.runtime.tasks;
 
+import org.apache.commons.lang3.concurrent.ConcurrentException;
 import org.apache.flink.runtime.state.KeyGroupState;
 import org.apache.flink.runtime.state.StateHandle;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class ChainedKeyGroupState implements StateHandle<Map<Integer, KeyGroupState>> {
@@ -44,6 +46,20 @@ public class ChainedKeyGroupState implements StateHandle<Map<Integer, KeyGroupSt
 
 	@Override
 	public void discardState() throws Exception {
+
+		while (!keyGroupStates.isEmpty()) {
+			try {
+				Iterator<KeyGroupState> iterator = keyGroupStates.values().iterator();
+
+				while (iterator.hasNext()) {
+					KeyGroupState keyGroupState = iterator.next();
+					keyGroupState.discardState();
+					iterator.remove();
+				}
+			} catch (ConcurrentException e) {
+				// fall through the loop
+			}
+		}
 		for (KeyGroupState keyGroupState: keyGroupStates.values()) {
 			keyGroupState.discardState();
 		}

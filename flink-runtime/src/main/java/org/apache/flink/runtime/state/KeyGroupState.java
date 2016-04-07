@@ -20,7 +20,9 @@ package org.apache.flink.runtime.state;
 
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,6 +58,22 @@ public class KeyGroupState implements Serializable {
 	}
 
 	public void discardState() throws Exception {
+
+		while (!namedKvStateSnapshots.isEmpty()) {
+			try {
+				Iterator<KvStateSnapshot<?, ?, ?, ?, ?>> iterator = namedKvStateSnapshots.values().iterator();
+
+				while (iterator.hasNext()) {
+					KvStateSnapshot<?, ?, ?, ?, ?> kvStateSnapshot = iterator.next();
+					kvStateSnapshot.discardState();
+					iterator.remove();
+				}
+			} catch (ConcurrentModificationException e) {
+				// fall through the loop
+			}
+		}
+
+
 		for (KvStateSnapshot<?, ?, ?, ?, ?> kvStateSnapshot : namedKvStateSnapshots.values()) {
 			kvStateSnapshot.discardState();
 		}
