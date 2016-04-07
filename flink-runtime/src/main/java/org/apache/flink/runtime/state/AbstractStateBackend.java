@@ -42,6 +42,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -301,23 +302,33 @@ public abstract class AbstractStateBackend implements java.io.Serializable {
 
 	/**
 	 * Injects K/V state snapshots for lazy restore.
-	 * @param keyValueStateSnapshots The Map of snapshots
+	 * @param keyGroupStates The assigned key groups and their associated states
 	 */
 	@SuppressWarnings("unchecked,rawtypes")
-	public final void injectKeyValueStateSnapshots(HashMap<String, KvStateSnapshot> keyValueStateSnapshots, long recoveryTimestamp) throws Exception {
-		if (keyValueStateSnapshots != null) {
-			if (keyValueStatesByName == null) {
-				keyValueStatesByName = new HashMap<>();
-			}
+	public final void injectKeyValueStateSnapshots(Map<Integer, KeyGroupState> keyGroupStates, long recoveryTimestamp) throws Exception {
+		if (keyGroupStates != null) {
+			Iterator<KeyGroupState> keyGroupStateIterator = keyGroupStates.values().iterator();
 
-			for (Map.Entry<String, KvStateSnapshot> state : keyValueStateSnapshots.entrySet()) {
-				KvState kvState = state.getValue().restoreState(this,
-					keySerializer,
-					userCodeClassLoader,
-					recoveryTimestamp);
-				keyValueStatesByName.put(state.getKey(), kvState);
+			if (keyGroupStateIterator.hasNext()) {
+				KeyGroupState keyGroupState = keyGroupStateIterator.next();
+
+				if (keyValueStatesByName == null) {
+					keyValueStatesByName = new HashMap<>();
+				}
+
+				for (Map.Entry<String, KvStateSnapshot<?, ?, ?, ?, ?>> state: keyGroupState.entrySet()) {
+					KvState kvState = ((KvStateSnapshot)state.getValue()).restoreState(this,
+						keySerializer,
+						userCodeClassLoader,
+						recoveryTimestamp);
+					keyValueStatesByName.put(state.getKey(), kvState);
+				}
+				keyValueStates = keyValueStatesByName.values().toArray(new KvState[keyValueStatesByName.size()]);
+
+				if (keyGroupStateIterator.hasNext()) {
+					throw new RuntimeException(getClass().getSimpleName() + " does not support multiple key groups.");
+				}
 			}
-			keyValueStates = keyValueStatesByName.values().toArray(new KvState[keyValueStatesByName.size()]);
 		}
 	}
 

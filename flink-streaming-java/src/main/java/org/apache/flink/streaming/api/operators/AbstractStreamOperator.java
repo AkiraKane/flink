@@ -182,12 +182,15 @@ public abstract class AbstractStreamOperator<OUT>
 	}
 	
 	@Override
-	@SuppressWarnings("rawtypes,unchecked")
 	public void restoreState(StreamOperatorState state, long recoveryTimestamp) throws Exception {
+	}
+
+	@Override
+	public void restoreKvState(Map<Integer, KeyGroupState> keyGroupStates, long recoveryTimestamp) throws Exception {
 		// restore the key/value state. the actual restore happens lazily, when the function requests
 		// the state again, because the restore method needs information provided by the user function
 		if (stateBackend != null) {
-			stateBackend.injectKeyValueStateSnapshots((HashMap)state.getKvStates(), recoveryTimestamp);
+			stateBackend.injectKeyValueStateSnapshots(keyGroupStates, recoveryTimestamp);
 		}
 	}
 	

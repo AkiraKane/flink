@@ -47,6 +47,10 @@ public class KeyGroupState implements Serializable {
 		return namedKvStateSnapshots.keySet();
 	}
 
+	public Set<Map.Entry<String, KvStateSnapshot<?, ?, ?, ?, ?>>> entrySet() {
+		return namedKvStateSnapshots.entrySet();
+	}
+
 	public long getStateSize() throws Exception {
 		long stateSize = 0;
 

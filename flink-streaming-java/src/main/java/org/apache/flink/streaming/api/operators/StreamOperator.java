@@ -127,6 +127,14 @@ public interface StreamOperator<OUT> extends Serializable {
 	void restoreState(StreamOperatorState state, long recoveryTimestamp) throws Exception;
 
 	/**
+	 *
+	 * @param keyGroupStates
+	 * @param recoveryTimestamp
+	 * @throws Exception
+	 */
+	void restoreKvState(Map<Integer, KeyGroupState> keyGroupStates, long recoveryTimestamp) throws Exception;
+
+	/**
 	 * Called when the checkpoint with the given ID is completed and acknowledged on the JobManager.
 	 *
 	 * @param checkpointId The ID of the checkpoint that has been completed.
