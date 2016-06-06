@@ -131,8 +131,9 @@ public class ZooKeeperLeaderElectionTest extends TestLogger {
 		Configuration configuration = new Configuration();
 		configuration.setString(ConfigConstants.ZOOKEEPER_QUORUM_KEY, testingServer.getConnectString());
 		configuration.setString(ConfigConstants.RECOVERY_MODE, "zookeeper");
+		configuration.setInteger(ConfigConstants.ZOOKEEPER_CONNECTION_TIMEOUT, 60000);
 
-		int num = 50;
+		int num = 25;
 
 		ZooKeeperLeaderElectionService[] leaderElectionService = new ZooKeeperLeaderElectionService[num];
 		TestingContender[] contenders = new TestingContender[num];
