@@ -38,6 +38,8 @@ import org.junit.Test;
 import org.mockito.Matchers;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.Promise;
@@ -57,6 +59,8 @@ public class ZooKeeperLeaderElectionTest extends TestLogger {
 	private TestingServer testingServer;
 	private static final String TEST_URL = "akka//user/jobmanager";
 	private static final FiniteDuration timeout = new FiniteDuration(200, TimeUnit.SECONDS);
+
+	private static Logger LOG = LoggerFactory.getLogger(ZooKeeperLeaderElectionTest.class);
 
 	@Before
 	public void before() {
@@ -144,11 +148,15 @@ public class ZooKeeperLeaderElectionTest extends TestLogger {
 		try {
 			leaderRetrievalService = ZooKeeperUtils.createLeaderRetrievalService(configuration);
 
+			LOG.debug("Start leader retrieval service for the TestingListener.");
+
 			leaderRetrievalService.start(listener);
 
 			for (int i = 0; i < num; i++) {
 				leaderElectionService[i] = ZooKeeperUtils.createLeaderElectionService(configuration);
 				contenders[i] = new TestingContender(TEST_URL + "_" + i, leaderElectionService[i]);
+
+				LOG.debug("Start leader election service for contender #{}.", i);
 
 				leaderElectionService[i].start(contenders[i]);
 			}
@@ -157,6 +165,7 @@ public class ZooKeeperLeaderElectionTest extends TestLogger {
 			Pattern regex = Pattern.compile(pattern);
 
 			for (int i = 0; i < num; i++) {
+				LOG.debug("Wait for new leader #{}.", i);
 				listener.waitForNewLeader(timeout.toMillis());
 
 				String address = listener.getAddress();
@@ -171,6 +180,7 @@ public class ZooKeeperLeaderElectionTest extends TestLogger {
 					assertEquals(TEST_URL + "_" + index, listener.getAddress());
 
 					// kill the election service of the leader
+					LOG.debug("Stop leader election service of contender #{}.", i);
 					leaderElectionService[index].stop();
 					leaderElectionService[index] = null;
 				} else {
