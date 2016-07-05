@@ -1062,6 +1062,8 @@ class JobManager(
    * @param isRecovery Flag indicating whether this is a recovery or initial submission
    */
   private def submitJob(jobGraph: JobGraph, jobInfo: JobInfo, isRecovery: Boolean = false): Unit = {
+    throw new RuntimeException("fail")
+
     if (jobGraph == null) {
       jobInfo.client ! decorateMessage(JobResultFailure(
         new SerializedThrowable(
