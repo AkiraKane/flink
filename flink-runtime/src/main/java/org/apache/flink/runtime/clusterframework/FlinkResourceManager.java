@@ -161,6 +161,7 @@ public abstract class FlinkResourceManager<WorkerType extends ResourceIDRetrieva
 
 	@Override
 	public void preStart() {
+		LOG.info("Initializing {}.", getClass().getName());
 		try {
 			// we start our leader retrieval service to make sure we get informed
 			// about JobManager leader changes
@@ -183,6 +184,8 @@ public abstract class FlinkResourceManager<WorkerType extends ResourceIDRetrieva
 
 			// framework specific initialization
 			initialize();
+
+			LOG.info("Successfully finished initialization.");
 
 		}
 		catch (Throwable t) {
