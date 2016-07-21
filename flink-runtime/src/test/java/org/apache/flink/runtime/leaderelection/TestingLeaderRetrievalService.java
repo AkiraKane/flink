@@ -21,6 +21,8 @@ package org.apache.flink.runtime.leaderelection;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalListener;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
@@ -29,11 +31,12 @@ import java.util.UUID;
  * notifyListener to the listener.
  */
 public class TestingLeaderRetrievalService implements LeaderRetrievalService {
+	private static Logger LOG = LoggerFactory.getLogger(TestingLeaderRetrievalService.class);
 
-	private String leaderAddress;
-	private UUID leaderSessionID;
+	private volatile String leaderAddress;
+	private volatile UUID leaderSessionID;
 
-	private LeaderRetrievalListener listener;
+	private volatile LeaderRetrievalListener listener;
 
 	public TestingLeaderRetrievalService() {
 		this(null, null);
@@ -50,6 +53,8 @@ public class TestingLeaderRetrievalService implements LeaderRetrievalService {
 
 		if (leaderAddress != null) {
 			listener.notifyLeaderAddress(leaderAddress, leaderSessionID);
+		} else {
+			LOG.info("Service started but no leader elected yet.");
 		}
 	}
 
@@ -64,6 +69,9 @@ public class TestingLeaderRetrievalService implements LeaderRetrievalService {
 
 		if (listener != null) {
 			listener.notifyLeaderAddress(address, leaderSessionID);
+		} else {
+			LOG.info("Could not notify listener about new leader address {} because it was not " +
+				"yet set.", leaderAddress);
 		}
 	}
 }
