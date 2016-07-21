@@ -242,7 +242,7 @@ object AkkaUtils {
 
     val lifecycleEvents = configuration.getBoolean(
       ConfigConstants.AKKA_LOG_LIFECYCLE_EVENTS,
-      ConfigConstants.DEFAULT_AKKA_LOG_LIFECYCLE_EVENTS)
+      true)
 
     val logLifecycleEvents = if (lifecycleEvents) "on" else "off"
 
