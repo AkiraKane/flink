@@ -49,6 +49,7 @@ public class TestingLeaderRetrievalService implements LeaderRetrievalService {
 
 	@Override
 	public void start(LeaderRetrievalListener listener) throws Exception {
+		LOG.info("Start testing leader retrieval service.");
 		this.listener = Preconditions.checkNotNull(listener);
 
 		if (leaderAddress != null) {
@@ -64,6 +65,7 @@ public class TestingLeaderRetrievalService implements LeaderRetrievalService {
 	}
 
 	public void notifyListener(String address, UUID leaderSessionID) {
+		LOG.info("Notifying listener about new leader {}.", address);
 		this.leaderAddress = address;
 		this.leaderSessionID = leaderSessionID;
 
