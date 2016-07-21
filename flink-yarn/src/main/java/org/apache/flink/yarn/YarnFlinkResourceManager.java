@@ -256,13 +256,19 @@ public class YarnFlinkResourceManager extends FlinkResourceManager<RegisteredYar
 		scala.Option<Object> portOption = AkkaUtils.getAddress(getContext().system()).port();
 		int actorSystemPort = portOption.isDefined() ? (int) portOption.get() : -1;
 
+		LOG.info("Selected actor system port {}.", actorSystemPort);
+
 		RegisterApplicationMasterResponse response = resourceManagerClient.registerApplicationMaster(
 			applicationMasterHostName, actorSystemPort, webInterfaceURL);
+
+		LOG.info("Registered application master.");
 
 		// if this application master starts as part of an ApplicationMaster/JobManager recovery,
 		// then some worker containers are most likely still alive and we can re-obtain them
 		List<Container> containersFromPreviousAttempts =
 			applicationMasterResponseReflector.getContainersFromPreviousAttempts(response);
+
+		LOG.info("Get #{} containers from previous attempts.", containersFromPreviousAttempts.size());
 
 		if (!containersFromPreviousAttempts.isEmpty()) {
 			LOG.info("Retrieved {} TaskManagers from previous attempt", containersFromPreviousAttempts.size());
