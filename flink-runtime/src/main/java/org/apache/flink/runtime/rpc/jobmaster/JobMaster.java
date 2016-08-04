@@ -30,7 +30,6 @@ import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Tuple2;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.ExecutionContext$;
 import scala.concurrent.Future;
@@ -76,25 +75,30 @@ public class JobMaster extends RpcServer<JobMasterGateway> {
 			}
 		}, executionContext);
 
-		resourceManagerFuture.zip(registrationResponseFuture).onComplete(new OnComplete<Tuple2<ResourceManagerGateway, RegistrationResponse>>() {
+		(registrationResponseFuture).onComplete(new OnComplete<RegistrationResponse>() {
 			@Override
-			public void onComplete(Throwable failure, Tuple2<ResourceManagerGateway, RegistrationResponse> success) throws Throwable {
+			public void onComplete(Throwable failure, RegistrationResponse success) throws Throwable {
 				if (failure != null) {
-					LOG.info("Registration at resource manager {} failed. Tyr again.", address);
+					LOG.error("Registration at resource manager " + resourceManager + " failed. Tyr again.", failure);
 				} else {
-					getSelf().handleRegistrationResponse(success._2(), success._1());
+					getSelf().handleRegistrationResponse(success);
 				}
 			}
 		}, executionContext);
 	}
 
 	@RpcMethod
-	public void handleRegistrationResponse(RegistrationResponse response, ResourceManagerGateway resourceManager) {
+	public void handleRegistrationResponse(RegistrationResponse response) {
 		System.out.println("Received registration response: " + response);
 		this.resourceManager = resourceManager;
 	}
 
 	public boolean isConnected() {
 		return resourceManager != null;
+	}
+
+	@Override
+	public Class<JobMasterGateway> getSelfClass() {
+		return JobMasterGateway.class;
 	}
 }

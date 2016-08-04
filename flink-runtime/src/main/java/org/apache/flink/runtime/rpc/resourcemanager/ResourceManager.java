@@ -45,4 +45,9 @@ public class ResourceManager extends RpcServer<ResourceManagerGateway> {
 		System.out.println("SlotRequest: " + slotRequest);
 		return new SlotAssignment();
 	}
+
+	@Override
+	public Class<ResourceManagerGateway> getSelfClass() {
+		return ResourceManagerGateway.class;
+	}
 }

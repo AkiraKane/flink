@@ -23,18 +23,12 @@ import org.apache.flink.runtime.rpc.resourcemanager.ResourceManagerGateway;
 
 public class HandleRegistrationResponse {
 	private final RegistrationResponse registrationResponse;
-	private final ResourceManagerGateway resourceManagerGateway;
 
-	public HandleRegistrationResponse(RegistrationResponse registrationResponse, ResourceManagerGateway resourceManagerGateway) {
+	public HandleRegistrationResponse(RegistrationResponse registrationResponse) {
 		this.registrationResponse = registrationResponse;
-		this.resourceManagerGateway = resourceManagerGateway;
 	}
 
 	public RegistrationResponse getRegistrationResponse() {
 		return registrationResponse;
-	}
-
-	public ResourceManagerGateway getResourceManagerGateway() {
-		return resourceManagerGateway;
 	}
 }

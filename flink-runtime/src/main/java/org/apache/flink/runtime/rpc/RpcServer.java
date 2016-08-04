@@ -33,6 +33,8 @@ public abstract class RpcServer<C extends RpcGateway> {
 		this.rpcService = rpcService;
 	}
 
+	public abstract Class<C> getSelfClass();
+
 	/**
 	 * Get self-gateway which should be used to run asynchronous rpc calls on the server.
 	 *
@@ -46,7 +48,7 @@ public abstract class RpcServer<C extends RpcGateway> {
 	}
 
 	public void runAsync(Runnable runnable) {
-		((RunnableAkkaGateway) self).runAsync(runnable);
+		((RunnableRpcGateway) self).runAsync(runnable);
 	}
 
 	public RpcService getRpcService() {

@@ -30,5 +30,5 @@ public interface JobMasterGateway extends RpcGateway {
 
 	void triggerResourceManagerRegistration(String address);
 
-	void handleRegistrationResponse(RegistrationResponse response, ResourceManagerGateway resourceManager);
+	void handleRegistrationResponse(RegistrationResponse response);
 }

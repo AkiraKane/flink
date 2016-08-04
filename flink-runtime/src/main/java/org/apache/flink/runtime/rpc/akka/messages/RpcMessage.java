@@ -16,16 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.rpc;
+package org.apache.flink.runtime.rpc.akka.messages;
 
-import scala.concurrent.Future;
+import java.io.Serializable;
 
-public interface RpcService {
-	<C extends RpcGateway> Future<C> connect(String address, Class<C> clazz);
+public class RpcMessage implements Serializable {
+	private final String methodName;
+	private final Object[] methodArgs;
 
-	<S extends RpcServer<C>, C extends RpcGateway> C startServer(S methodHandler);
+	public RpcMessage(String methodName, Object[] methodArgs) {
+		this.methodName = methodName;
+		this.methodArgs = methodArgs;
+	}
 
-	<C extends RpcGateway> void stopServer(C gateway);
+	public Object[] getMethodArgs() {
+		return methodArgs;
+	}
 
-	void stopService();
+	public String getMethodName() {
+		return methodName;
+	}
 }

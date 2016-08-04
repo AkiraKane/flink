@@ -16,16 +16,22 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.rpc;
+package org.apache.flink.runtime.rpc.akka.messages;
 
-import scala.concurrent.Future;
+public class VoidRpcMessage {
+	private final String methodName;
+	private final Object[] methodArgs;
 
-public interface RpcService {
-	<C extends RpcGateway> Future<C> connect(String address, Class<C> clazz);
+	public VoidRpcMessage(String methodName, Object[] methodArgs) {
+		this.methodName = methodName;
+		this.methodArgs = methodArgs;
+	}
 
-	<S extends RpcServer<C>, C extends RpcGateway> C startServer(S methodHandler);
+	public Object[] getMethodArgs() {
+		return methodArgs;
+	}
 
-	<C extends RpcGateway> void stopServer(C gateway);
-
-	void stopService();
+	public String getMethodName() {
+		return methodName;
+	}
 }

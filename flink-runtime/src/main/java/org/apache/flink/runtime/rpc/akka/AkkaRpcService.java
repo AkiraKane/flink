@@ -28,23 +28,13 @@ import akka.actor.Props;
 import akka.dispatch.Mapper;
 import akka.pattern.AskableActorSelection;
 import akka.util.Timeout;
-import org.apache.flink.runtime.rpc.jobmaster.JobMaster;
-import org.apache.flink.runtime.rpc.jobmaster.JobMasterGateway;
-import org.apache.flink.runtime.rpc.resourcemanager.ResourceManager;
-import org.apache.flink.runtime.rpc.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.rpc.RunnableRpcGateway;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.RpcServer;
 import org.apache.flink.runtime.rpc.RpcService;
-import org.apache.flink.runtime.rpc.akka.jobmaster.JobMasterAkkaActor;
-import org.apache.flink.runtime.rpc.akka.jobmaster.JobMasterAkkaGateway;
-import org.apache.flink.runtime.rpc.akka.resourcemanager.ResourceManagerAkkaActor;
-import org.apache.flink.runtime.rpc.akka.resourcemanager.ResourceManagerAkkaGateway;
-import org.apache.flink.runtime.rpc.akka.taskexecutor.TaskExecutorAkkaActor;
-import org.apache.flink.runtime.rpc.akka.taskexecutor.TaskExecutorAkkaGateway;
-import org.apache.flink.runtime.rpc.taskexecutor.TaskExecutorGateway;
-import org.apache.flink.runtime.rpc.taskexecutor.TaskExecutor;
 import scala.concurrent.Future;
 
+import java.lang.reflect.Proxy;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -70,44 +60,28 @@ public class AkkaRpcService implements RpcService {
 			public C apply(Object obj) {
 				ActorRef actorRef = ((ActorIdentity) obj).getRef();
 
-				if (clazz == TaskExecutorGateway.class) {
-					return (C) new TaskExecutorAkkaGateway(actorRef, timeout);
-				} else if (clazz == ResourceManagerGateway.class) {
-					return (C) new ResourceManagerAkkaGateway(actorRef, timeout);
-				} else if (clazz == JobMasterGateway.class) {
-					return (C) new JobMasterAkkaGateway(actorRef, timeout);
-				} else {
-					throw new RuntimeException("Could not find remote endpoint " + clazz);
-				}
+				return (C) Proxy.newProxyInstance(
+					ClassLoader.getSystemClassLoader(),
+					new Class<?>[]{clazz},
+					new AkkaInvocationHandler(actorRef, timeout));
+
 			}
 		}, actorSystem.dispatcher());
 	}
 
 	@Override
-	public <S extends RpcServer, C extends RpcGateway> C startServer(S methodHandler) {
+	public <S extends RpcServer<C>, C extends RpcGateway> C startServer(S methodHandler) {
 		ActorRef ref;
 		C self;
-		if (methodHandler instanceof TaskExecutor) {
-			ref = actorSystem.actorOf(
-				Props.create(TaskExecutorAkkaActor.class, methodHandler)
-			);
 
-			self = (C) new TaskExecutorAkkaGateway(ref, timeout);
-		} else if (methodHandler instanceof ResourceManager) {
-			ref = actorSystem.actorOf(
-				Props.create(ResourceManagerAkkaActor.class, methodHandler)
-			);
+		ref = actorSystem.actorOf(
+			Props.create(RpcAkkaActor.class, methodHandler)
+		);
 
-			self = (C) new ResourceManagerAkkaGateway(ref, timeout);
-		} else if (methodHandler instanceof JobMaster) {
-			ref = actorSystem.actorOf(
-				Props.create(JobMasterAkkaActor.class, methodHandler)
-			);
-
-			self = (C) new JobMasterAkkaGateway(ref, timeout);
-		} else {
-			throw new RuntimeException("Could not start RPC server for class " + methodHandler.getClass());
-		}
+		self = (C) Proxy.newProxyInstance(
+			ClassLoader.getSystemClassLoader(),
+			new Class<?>[]{methodHandler.getSelfClass(), RunnableRpcGateway.class, AkkaGateway.class},
+			new AkkaInvocationHandler(ref, timeout));
 
 		actors.add(ref);
 

@@ -54,4 +54,9 @@ public class TaskExecutor extends RpcServer<TaskExecutorGateway> {
 			throw new Exception("Could not find task.");
 		}
 	}
+
+	@Override
+	public Class<TaskExecutorGateway> getSelfClass() {
+		return TaskExecutorGateway.class;
+	}
 }
