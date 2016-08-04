@@ -25,13 +25,14 @@ import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rpc.akka.AkkaGateway;
+import org.apache.flink.runtime.rpc.akka.RunnableAkkaGateway;
 import org.apache.flink.runtime.rpc.akka.messages.CancelTask;
 import org.apache.flink.runtime.rpc.akka.messages.ExecuteTask;
 import org.apache.flink.runtime.rpc.taskexecutor.TaskExecutorGateway;
 import scala.concurrent.Future;
 import scala.reflect.ClassTag$;
 
-public class TaskExecutorAkkaGateway implements TaskExecutorGateway, AkkaGateway {
+public class TaskExecutorAkkaGateway extends RunnableAkkaGateway implements TaskExecutorGateway {
 	private final AskableActorRef actorRef;
 	private final Timeout timeout;
 
