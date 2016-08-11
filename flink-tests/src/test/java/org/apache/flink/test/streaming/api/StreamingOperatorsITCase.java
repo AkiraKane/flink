@@ -21,6 +21,7 @@ package org.apache.flink.test.streaming.api;
 import org.apache.flink.api.common.functions.FoldFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.util.MathUtils;
@@ -82,21 +83,16 @@ public class StreamingOperatorsITCase extends StreamingMultipleProgramsTestBase 
 
 		SplitStream<Tuple2<Integer, Integer>> splittedResult = sourceStream
 			.keyBy(0)
-			.fold(0, new FoldFunction<Tuple2<Integer, Integer>, Integer>() {
+			.fold(Tuple2.of(-1, 0), new FoldFunction<Tuple2<Integer, Integer>, Tuple2<Integer, Integer>>() {
+				private static final long serialVersionUID = 1172454649027174549L;
+
 				@Override
-				public Integer fold(Integer accumulator, Tuple2<Integer, Integer> value) throws Exception {
-					return accumulator + value.f1;
-				}
-			}).map(new RichMapFunction<Integer, Tuple2<Integer, Integer>>() {
-				int key = -1;
-				@Override
-				public Tuple2<Integer, Integer> map(Integer value) throws Exception {
-					if (key == -1){
-						key = MathUtils.murmurHash(value) % numKeys;
-					}
-					return new Tuple2<>(key, value);
+				public Tuple2<Integer, Integer> fold(Tuple2<Integer, Integer> accumulator, Tuple2<Integer, Integer> value) throws Exception {
+					return Tuple2.of(value.f0, accumulator.f1 + value.f1);
 				}
 			}).split(new OutputSelector<Tuple2<Integer, Integer>>() {
+				private static final long serialVersionUID = -3948169164033548235L;
+
 				@Override
 				public Iterable<String> select(Tuple2<Integer, Integer> value) {
 					List<String> output = new ArrayList<>();
@@ -129,7 +125,7 @@ public class StreamingOperatorsITCase extends StreamingMultipleProgramsTestBase 
 			if (MathUtils.murmurHash(i) % numKeys == 0) {
 				counter1 += i;
 				builder1.append(counter1 + "\n");
-			} else {
+			} else if(MathUtils.murmurHash(i) % numKeys == 1) {
 				counter2 += i;
 				builder2.append(counter2 + "\n");
 			}
@@ -192,6 +188,7 @@ public class StreamingOperatorsITCase extends StreamingMultipleProgramsTestBase 
 	}
 
 	private static class NonSerializableTupleSource implements SourceFunction<Tuple2<Integer, NonSerializable>> {
+		private static final long serialVersionUID = -5674534159617033797L;
 		private final int numElements;
 
 		public NonSerializableTupleSource(int numElements) {
@@ -212,6 +209,7 @@ public class StreamingOperatorsITCase extends StreamingMultipleProgramsTestBase 
 
 	private static class TupleSource implements SourceFunction<Tuple2<Integer, Integer>> {
 
+		private static final long serialVersionUID = 7480824312804880588L;
 		private final int numElements;
 		private final int numKeys;
 
@@ -223,9 +221,7 @@ public class StreamingOperatorsITCase extends StreamingMultipleProgramsTestBase 
 		@Override
 		public void run(SourceContext<Tuple2<Integer, Integer>> ctx) throws Exception {
 			for (int i = 0; i < numElements; i++) {
-				// keys '1' and '2' hash to different buckets
-				Tuple2<Integer, Integer> result = new Tuple2<>(1 + (MathUtils.murmurHash(i) % numKeys), i);
-				ctx.collect(result);
+				ctx.collect(Tuple2.of(MathUtils.murmurHash(i) % numKeys, i));
 			}
 		}
 
