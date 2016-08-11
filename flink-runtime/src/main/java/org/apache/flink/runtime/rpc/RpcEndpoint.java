@@ -64,11 +64,11 @@ public abstract class RpcEndpoint<C extends RpcGateway> {
 	private final C self;
 
 	/** the fully qualified address of the this RPC endpoint */
-	private final String selfAddress;
+	private final String address;
 
 	/** The main thread execution context to be used to execute future callbacks in the main thread
 	 * of the executing rpc server. */
-	private final MainThreadExecutionContext mainThreadExecutionContext;
+	private final ExecutionContext mainThreadExecutionContext;
 
 
 	/**
@@ -78,14 +78,25 @@ public abstract class RpcEndpoint<C extends RpcGateway> {
 	 */
 	protected RpcEndpoint(final RpcService rpcService) {
 		this.rpcService = checkNotNull(rpcService, "rpcService");
-		this.self = rpcService.startServer(this);
-		this.selfAddress = rpcService.getAddress(self);
-		this.mainThreadExecutionContext = new MainThreadExecutionContext((MainThreadExecutor) self);
+		self = rpcService.startServer(this);
+		address = rpcService.getAddress(self);
+		mainThreadExecutionContext = new MainThreadExecutionContext((MainThreadExecutor) self);
 	}
 
 	// ------------------------------------------------------------------------
-	//  Shutdown
+	//  Start & Shutdown
 	// ------------------------------------------------------------------------
+
+	/**
+	 * Starts the rpc endpoint. This tells the underlying rpc server that the rpc endpoint is ready
+	 * to process remote procedure calls.
+	 *
+	 * IMPORTANT: Whenever you override this method, call the parent implementation to enable
+	 * rpc processing. It is advised to make the parent call last.
+	 */
+	public void start() {
+		((StartStoppable) self).start();
+	}
 
 	/**
 	 * Shuts down the underlying RPC endpoint via the RPC service.
@@ -123,7 +134,7 @@ public abstract class RpcEndpoint<C extends RpcGateway> {
 	 * @return Fully qualified address of the underlying RPC endpoint
 	 */
 	public String getAddress() {
-		return selfAddress;
+		return address;
 	}
 
 	/**

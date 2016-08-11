@@ -24,7 +24,9 @@ import akka.util.Timeout;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.rpc.MainThreadExecutor;
 import org.apache.flink.runtime.rpc.RpcTimeout;
+import org.apache.flink.runtime.rpc.StartStoppable;
 import org.apache.flink.runtime.rpc.akka.messages.CallAsync;
+import org.apache.flink.runtime.rpc.akka.messages.Processing;
 import org.apache.flink.runtime.rpc.akka.messages.RpcInvocation;
 import org.apache.flink.runtime.rpc.akka.messages.RunAsync;
 import org.apache.flink.util.Preconditions;
@@ -43,7 +45,7 @@ import java.util.concurrent.Callable;
  * rpc in a {@link RpcInvocation} message and then sends it to the {@link AkkaRpcActor} where it is
  * executed.
  */
-class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThreadExecutor {
+class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThreadExecutor, StartStoppable {
 	private final ActorRef rpcServer;
 
 	// default timeout for asks
@@ -60,7 +62,8 @@ class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThrea
 
 		Object result;
 
-		if (declaringClass.equals(AkkaGateway.class) || declaringClass.equals(MainThreadExecutor.class) || declaringClass.equals(Object.class)) {
+		if (declaringClass.equals(AkkaGateway.class) || declaringClass.equals(MainThreadExecutor.class) ||
+			declaringClass.equals(Object.class) || declaringClass.equals(StartStoppable.class)) {
 			result = method.invoke(this, args);
 		} else {
 			String methodName = method.getName();
@@ -120,6 +123,20 @@ class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThrea
 
 		return result;
 	}
+
+	@Override
+	public void start() {
+		rpcServer.tell(Processing.START, ActorRef.noSender());
+	}
+
+	@Override
+	public void stop() {
+		rpcServer.tell(Processing.STOP, ActorRef.noSender());
+	}
+
+	// ------------------------------------------------------------------------
+	//  Helper methods
+	// ------------------------------------------------------------------------
 
 	/**
 	 * Extracts the {@link RpcTimeout} annotated rpc timeout value from the list of given method
