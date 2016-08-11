@@ -65,8 +65,7 @@ class AkkaRpcActor<C extends RpcGateway, T extends RpcEndpoint<C>> extends Untyp
 		} else if (message instanceof RpcInvocation) {
 			handleRpcInvocation((RpcInvocation) message);
 		} else {
-			throw new RuntimeException("Encountered unknown message type " + message.getClass() +
-				" with value " + message + '.');
+			LOG.warn("Received message of unknown type {}. Dropping this message!", message.getClass());
 		}
 	}
 
