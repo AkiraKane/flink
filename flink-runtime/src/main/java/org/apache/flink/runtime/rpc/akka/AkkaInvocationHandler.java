@@ -25,13 +25,17 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.rpc.MainThreadExecutor;
 import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.rpc.akka.messages.CallAsync;
+import org.apache.flink.runtime.rpc.akka.messages.LocalRpcInvocation;
+import org.apache.flink.runtime.rpc.akka.messages.RemoteRpcInvocation;
 import org.apache.flink.runtime.rpc.akka.messages.RpcInvocation;
 import org.apache.flink.runtime.rpc.akka.messages.RunAsync;
 import org.apache.flink.util.Preconditions;
+import org.apache.log4j.Logger;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.FiniteDuration;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -39,19 +43,24 @@ import java.util.BitSet;
 import java.util.concurrent.Callable;
 
 /**
- * Invocation handler to be used with a {@link AkkaRpcActor}. The invocation handler wraps the
- * rpc in a {@link RpcInvocation} message and then sends it to the {@link AkkaRpcActor} where it is
+ * Invocation handler to be used with an {@link AkkaRpcActor}. The invocation handler wraps the
+ * rpc in a {@link LocalRpcInvocation} message and then sends it to the {@link AkkaRpcActor} where it is
  * executed.
  */
 class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThreadExecutor {
+	private static final Logger LOG = Logger.getLogger(AkkaInvocationHandler.class);
+
 	private final ActorRef rpcServer;
 
 	// default timeout for asks
 	private final Timeout timeout;
 
-	AkkaInvocationHandler(ActorRef rpcServer, Timeout timeout) {
+	private final long maximumFramesize;
+
+	AkkaInvocationHandler(ActorRef rpcServer, Timeout timeout, long maximumFramesize) {
 		this.rpcServer = Preconditions.checkNotNull(rpcServer);
 		this.timeout = Preconditions.checkNotNull(timeout);
+		this.maximumFramesize = maximumFramesize;
 	}
 
 	@Override
@@ -73,10 +82,30 @@ class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThrea
 				parameterAnnotations,
 				args);
 
-			RpcInvocation rpcInvocation = new RpcInvocation(
-				methodName,
-				filteredArguments.f0,
-				filteredArguments.f1);
+			RpcInvocation rpcInvocation;
+
+			if (isLocalActorRef()) {
+				rpcInvocation = new LocalRpcInvocation(
+					methodName,
+					filteredArguments.f0,
+					filteredArguments.f1);
+			} else {
+				try {
+					RemoteRpcInvocation remoteRpcInvocation = new RemoteRpcInvocation(
+						methodName,
+						filteredArguments.f0,
+						filteredArguments.f1);
+
+					if (remoteRpcInvocation.getSize() > maximumFramesize) {
+						throw new IOException("The rpc invocation size exceeds the maximum akka framesize.");
+					} else {
+						rpcInvocation = remoteRpcInvocation;
+					}
+				} catch (IOException e) {
+					LOG.warn("Could not create remote rpc invocation message. Failing rpc invocation because...", e);
+					throw e;
+				}
+			}
 
 			Class<?> returnType = method.getReturnType();
 
@@ -106,19 +135,34 @@ class AkkaInvocationHandler implements InvocationHandler, AkkaGateway, MainThrea
 
 	@Override
 	public void runAsync(Runnable runnable) {
-		// Unfortunately I couldn't find a way to allow only local communication. Therefore, the
-		// runnable field is transient transient
-		rpcServer.tell(new RunAsync(runnable), ActorRef.noSender());
+		if (isLocalActorRef()) {
+			rpcServer.tell(new RunAsync(runnable), ActorRef.noSender());
+		} else {
+			throw new RuntimeException("Trying to send a Runnable to a remote actor at " +
+				rpcServer.path() + ". This is not supported.");
+		}
 	}
 
 	@Override
 	public <V> Future<V> callAsync(Callable<V> callable, Timeout callTimeout) {
-		// Unfortunately I couldn't find a way to allow only local communication. Therefore, the
-		// callable field is declared transient
-		@SuppressWarnings("unchecked")
-		Future<V> result = (Future<V>) Patterns.ask(rpcServer, new CallAsync(callable), callTimeout);
+		if(isLocalActorRef()) {
+			@SuppressWarnings("unchecked")
+			Future<V> result = (Future<V>) Patterns.ask(rpcServer, new CallAsync(callable), callTimeout);
 
-		return result;
+			return result;
+		} else {
+			throw new RuntimeException("Trying to send a Callable to a remote actor at " +
+				rpcServer.path() + ". This is not supported.");
+		}
+	}
+
+	/**
+	 * Checks whether the rpc server {@link ActorRef} is local or not.
+	 *
+	 * @return True if the rpc server actor ref is local; false otherwise
+	 */
+	private boolean isLocalActorRef() {
+		return getRpcServer().path().address().hasLocalScope();
 	}
 
 	/**

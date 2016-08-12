@@ -50,13 +50,23 @@ import java.util.HashSet;
 public class AkkaRpcService implements RpcService {
 	private static final Logger LOG = LoggerFactory.getLogger(AkkaRpcService.class);
 
+	static final String MAXIMUM_FRAME_SIZE_PATH = "akka.remote.netty.tcp.maximum-frame-size";
+
 	private final ActorSystem actorSystem;
 	private final Timeout timeout;
 	private final Collection<ActorRef> actors = new HashSet<>(4);
+	private final long maximumFramesize;
 
 	public AkkaRpcService(final ActorSystem actorSystem, final Timeout timeout) {
 		this.actorSystem = Preconditions.checkNotNull(actorSystem, "actor system");
 		this.timeout = Preconditions.checkNotNull(timeout, "timeout");
+
+		if (actorSystem.settings().config().hasPath(MAXIMUM_FRAME_SIZE_PATH)) {
+			maximumFramesize = actorSystem.settings().config().getBytes(MAXIMUM_FRAME_SIZE_PATH);
+		} else {
+			// only local communication
+			maximumFramesize = Long.MAX_VALUE;
+		}
 	}
 
 	@Override
@@ -74,7 +84,7 @@ public class AkkaRpcService implements RpcService {
 			public C apply(Object obj) {
 				ActorRef actorRef = ((ActorIdentity) obj).getRef();
 
-				InvocationHandler akkaInvocationHandler = new AkkaInvocationHandler(actorRef, timeout);
+				InvocationHandler akkaInvocationHandler = new AkkaInvocationHandler(actorRef, timeout, maximumFramesize);
 
 				@SuppressWarnings("unchecked")
 				C proxy = (C) Proxy.newProxyInstance(
@@ -98,7 +108,7 @@ public class AkkaRpcService implements RpcService {
 		ActorRef actorRef = actorSystem.actorOf(akkaRpcActorProps);
 		actors.add(actorRef);
 
-		InvocationHandler akkaInvocationHandler = new AkkaInvocationHandler(actorRef, timeout);
+		InvocationHandler akkaInvocationHandler = new AkkaInvocationHandler(actorRef, timeout, maximumFramesize);
 
 		@SuppressWarnings("unchecked")
 		C self = (C) Proxy.newProxyInstance(

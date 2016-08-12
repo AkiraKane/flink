@@ -24,6 +24,7 @@ import akka.pattern.Patterns;
 import org.apache.flink.runtime.rpc.RpcEndpoint;
 import org.apache.flink.runtime.rpc.RpcGateway;
 import org.apache.flink.runtime.rpc.akka.messages.CallAsync;
+import org.apache.flink.runtime.rpc.akka.messages.LocalRpcInvocation;
 import org.apache.flink.runtime.rpc.akka.messages.RpcInvocation;
 import org.apache.flink.runtime.rpc.akka.messages.RunAsync;
 import org.apache.flink.util.Preconditions;
@@ -31,14 +32,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.concurrent.Future;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
 
 /**
- * Akka rpc actor which receives {@link RpcInvocation}, {@link RunAsync} and {@link CallAsync}
+ * Akka rpc actor which receives {@link LocalRpcInvocation}, {@link RunAsync} and {@link CallAsync}
  * messages.
  * <p>
- * The {@link RpcInvocation} designates a rpc and is dispatched to the given {@link RpcEndpoint}
+ * The {@link LocalRpcInvocation} designates a rpc and is dispatched to the given {@link RpcEndpoint}
  * instance.
  * <p>
  * The {@link RunAsync} and {@link CallAsync} messages contain executable code which is executed
@@ -77,15 +79,12 @@ class AkkaRpcActor<C extends RpcGateway, T extends RpcEndpoint<C>> extends Untyp
 	 * @param rpcInvocation Rpc invocation message
 	 */
 	private void handleRpcInvocation(RpcInvocation rpcInvocation) {
-		Method rpcMethod = null;
-
 		try {
-			rpcMethod = lookupRpcMethod(rpcInvocation.getMethodName(), rpcInvocation.getParameterTypes());
-		} catch (final NoSuchMethodException e) {
-			LOG.error("Could not find rpc method for rpc invocation: {}.", rpcInvocation, e);
-		}
+			String methodName = rpcInvocation.getMethodName();
+			Class<?>[] parameterTypes = rpcInvocation.getParameterTypes();
 
-		if (rpcMethod != null) {
+			Method rpcMethod = lookupRpcMethod(methodName, parameterTypes);
+
 			if (rpcMethod.getReturnType().equals(Void.TYPE)) {
 				// No return value to send back
 				try {
@@ -109,6 +108,12 @@ class AkkaRpcActor<C extends RpcGateway, T extends RpcEndpoint<C>> extends Untyp
 					getSender().tell(new Status.Failure(e), getSelf());
 				}
 			}
+		} catch(ClassNotFoundException e) {
+			LOG.error("Could not load method arguments.", e);
+		} catch (IOException e) {
+			LOG.error("Could not deserialize rpc invocation message.", e);
+		} catch (final NoSuchMethodException e) {
+			LOG.error("Could not find rpc method for rpc invocation: {}.", rpcInvocation, e);
 		}
 	}
 
@@ -167,7 +172,8 @@ class AkkaRpcActor<C extends RpcGateway, T extends RpcEndpoint<C>> extends Untyp
 	 * @param methodName Name of the method
 	 * @param parameterTypes Parameter types of the method
 	 * @return Method of the rpc endpoint
-	 * @throws NoSuchMethodException
+	 * @throws NoSuchMethodException Thrown if the method with the given name and parameter types
+	 * 									cannot be found at the rpc endpoint
 	 */
 	private Method lookupRpcMethod(final String methodName, final Class<?>[] parameterTypes) throws NoSuchMethodException {
 		return rpcEndpoint.getClass().getMethod(methodName, parameterTypes);
